@@ -12,7 +12,8 @@ var (
 	MaxBytesPerLog         = 1024 * 3
 	globalLogInstallBuffer *sync.Pool
 
-	_std = NewLogger(nil, FlagStd)
+	_std              = NewLogger(nil, FlagStd)
+	_defaultFormatter = new(TxtLineFormatter)
 )
 
 type Fields map[string]interface{}
