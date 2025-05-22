@@ -12,8 +12,12 @@ var (
 	MaxBytesPerLog         = 1024 * 3
 	globalLogInstallBuffer *sync.Pool
 
-	_std              = NewLogger(nil, FlagStd)
+	_std              = NewLogger(newStdHandler(), FlagStd)
 	_defaultFormatter = new(TxtLineFormatter)
+
+	defaultIothreadChanBufferLength = _4k
+
+	_globalWriteThread *HandlerIOWriteThread
 )
 
 type Fields map[string]interface{}
@@ -32,6 +36,7 @@ func init() {
 			return &LogInstance{}
 		},
 	}
+	_globalWriteThread = NewHandlerIOWriteThread("globalLogIOThread", defaultIothreadChanBufferLength)
 }
 
 // NewLogger 新建logger实例
@@ -63,13 +68,13 @@ func (l *Logger) Output(callDepth int, level Level, format string, v ...interfac
 }
 
 func (l *Logger) OutputMsg(depth int, level Level, msg string) {
-	var fileLine, currentTime, slevel string
+	var fileLine, currentTime, sLevel string
 
 	if l.flag&FlagTime > 0 {
 		currentTime = time.Now().Format(TimeFormat)
 	}
 	if l.flag&FlagLevel > 0 {
-		slevel = LevelNames[int(level)]
+		sLevel = LevelNames[int(level)]
 	}
 	if l.flag&FlagFile > 0 {
 		_, file, line, ok := runtime.Caller(depth)
@@ -100,7 +105,7 @@ func (l *Logger) OutputMsg(depth int, level Level, msg string) {
 	log := globalLogInstallBuffer.Get().(*LogInstance)
 	log.Flag = int(l.flag)
 	log.File = fileLine
-	log.Level = slevel
+	log.Level = sLevel
 	log.KV = l.kv
 	log.Time = currentTime
 	log.Msg = msg
@@ -166,4 +171,8 @@ func Fatal(format string, v ...interface{}) {
 
 func Buss(format string, v ...interface{}) {
 	_std.Output(3, LevelBuss, format, v...)
+}
+
+func Close() {
+	_globalWriteThread.Close()
 }

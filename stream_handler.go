@@ -8,7 +8,7 @@ type StreamHandler struct {
 	fmt         Formatter
 }
 
-func NewStreamHandler(w io.Writer) (*StreamHandler, error) {
+func newStreamHandler(w io.Writer) (*StreamHandler, error) {
 	h := &StreamHandler{
 		w:           w,
 		writeThread: nil,
@@ -31,7 +31,7 @@ func (s *StreamHandler) AsyncWrite(l *LogInstance) {
 	if s.writeThread != nil {
 		s.writeThread.AsyncWrite(s, s.fmt, l)
 	} else {
-
+		_globalWriteThread.AsyncWrite(s, s.fmt, l)
 	}
 }
 
