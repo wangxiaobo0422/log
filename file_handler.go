@@ -34,3 +34,38 @@ func NewFileHandler(fileName string) (*FileHandler, error) {
 		fileName:      fileName,
 	}, nil
 }
+
+func (f *FileHandler) Clone() Handler {
+	c := new(FileHandler)
+	c.StreamHandler = f.StreamHandler.Clone().(*StreamHandler)
+	c.fd = f.fd
+	c.fileName = f.fileName
+
+	return c
+}
+
+func (f *FileHandler) Close() error {
+	if f.fd != nil {
+		f.fd.Close()
+	}
+
+	return nil
+}
+
+type TimeRotatingFileHandler struct {
+	*FileHandler
+
+	logName    string
+	logDir     string
+	interval   int64
+	suffix     string
+	rolloverAt int64
+	keepLogNum int
+}
+
+const (
+	WhenSecond = 0
+	WhenMinute = 1
+	WhenHour   = 2
+	WhenDay    = 3
+)
