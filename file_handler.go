@@ -1,8 +1,19 @@
 package log
 
 import (
+	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+)
+
+type when int8
+
+const (
+	WhenSecond when = iota
+	WhenMinute      = 1
+	WhenHour        = 2
+	WhenDay         = 3
 )
 
 type FileHandler struct {
@@ -63,9 +74,43 @@ type TimeRotatingFileHandler struct {
 	keepLogNum int
 }
 
-const (
-	WhenSecond = 0
-	WhenMinute = 1
-	WhenHour   = 2
-	WhenDay    = 3
-)
+func NewTimeRotatingFileHandler(fileName string, w when, interval int, keepLogNum int) (*TimeRotatingFileHandler, error) {
+	fh, err := NewFileHandler(fileName)
+	if err != nil {
+		return nil, err
+	}
+
+	if keepLogNum == 0 {
+		keepLogNum = 5
+	}
+
+	h := new(TimeRotatingFileHandler)
+	h.FileHandler = fh
+	h.logName = filepath.Base(fileName)
+	h.logDir = filepath.Dir(fileName)
+	h.keepLogNum = keepLogNum
+
+	switch w {
+	case WhenSecond:
+		h.interval = 1
+		h.suffix = "2016-01-02_15-04-05"
+	case WhenMinute:
+		h.interval = 60
+		h.suffix = "2016-01-02_15-04"
+	case WhenHour:
+		h.interval = 60 * 60
+		h.suffix = "2016-01-02_15"
+	case WhenDay:
+		h.interval = 24 * 3600
+		h.suffix = "2016-01-02"
+	default:
+		return nil, fmt.Errorf("invalid when_rotate: %d", w)
+	}
+
+	h.interval = h.interval * int64(interval)
+	finfo, _ := h.fd.Stat()
+	// 每隔一段时间就写到新文件
+	h.rolloverAt = finfo.ModTime().Unix() + h.interval
+
+	return h, nil
+}
