@@ -5,6 +5,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
+	"strings"
 )
 
 type when int8
@@ -113,4 +115,55 @@ func NewTimeRotatingFileHandler(fileName string, w when, interval int, keepLogNu
 	h.rolloverAt = finfo.ModTime().Unix() + h.interval
 
 	return h, nil
+}
+
+func (h *TimeRotatingFileHandler) AsyncWrite(log *LogInstance) {
+	if h.writeThread != nil {
+		h.writeThread.AsyncWrite(h, h.fmt, log)
+	} else {
+		_globalWriteThread.AsyncWrite(h, h.fmt, log)
+	}
+}
+
+func (h *TimeRotatingFileHandler) SetKeepLogNum(num int) int {
+	n := h.keepLogNum
+	h.keepLogNum = num
+	return n
+}
+
+func (h *TimeRotatingFileHandler) clearFiles() error {
+	if h.keepLogNum <= 0 {
+		return nil
+	}
+
+	files, err := os.ReadDir(h.logDir)
+	if err != nil {
+		return err
+	}
+
+	var logFiles []os.FileInfo
+	for _, file := range files {
+		if file != nil && !file.IsDir() && file.Name() != h.logName && strings.HasPrefix(file.Name(), h.logName) {
+			if f, err := file.Info(); err == nil {
+				logFiles = append(logFiles, f)
+			}
+		}
+	}
+
+	if len(logFiles) <= h.keepLogNum {
+		return nil
+	}
+
+	// clear
+	sort.Slice(logFiles, func(i, j int) bool {
+		return logFiles[i].ModTime().Unix() > logFiles[j].ModTime().Unix()
+	})
+
+	cleanFiles := logFiles[h.keepLogNum:]
+	for _, one := range cleanFiles {
+		logFileName := filepath.Join(h.logDir, one.Name())
+		os.Remove(logFileName)
+	}
+
+	return nil
 }
