@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 type when int8
@@ -166,4 +167,31 @@ func (h *TimeRotatingFileHandler) clearFiles() error {
 	}
 
 	return nil
+}
+
+func (h *TimeRotatingFileHandler) doRollover() {
+	now := time.Now()
+
+	if h.rolloverAt <= now.Unix() {
+		h.fd.Close()
+		fName := fmt.Sprintf("%s.%s", h.fileName, now.Format(h.suffix))
+		os.Rename(h.fileName, fName)
+
+		h.fd, _ = os.OpenFile(h.fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		h.rolloverAt = h.rolloverAt + h.interval
+		h.clearFiles()
+	}
+}
+
+func (h *TimeRotatingFileHandler) Write(b []byte) (int, error) {
+	h.doRollover()
+	return h.fd.Write(b)
+}
+
+func (h *TimeRotatingFileHandler) SetWriteIOThread(t IHandleIOWriteThread) {
+	h.writeThread = t
+}
+
+func (h *TimeRotatingFileHandler) SetFormatter(fm Formatter) {
+	h.fmt = fm
 }
